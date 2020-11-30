@@ -85,31 +85,26 @@ static int handle_received_event(int sd)
     int ret;
     int msg_len;
     // 连续分配在栈区的内存
-    struct nlmsghdr nlh = {};   // 栈区
-    struct cn_msg cn = {};      // 栈区
-    struct proc_event evt = {}; // 栈区 用于申请空间
+    struct nlmsghdr *nlh = NULL; // 堆区
     struct proc_event *ev;
 
     msg_len = NLMSG_SPACE(CNMSG_LEN + PROCEVENT_LEN);
-    memset(&nlh, 0, msg_len);
+    nlh = malloc(msg_len);
 
-    ret = recv(sd, &nlh, msg_len, 0);
+    ret = recv(sd, nlh, msg_len, 0);
     if (ret == 0) // 接收了 0 个字节的内容
     {
+        free(nlh);
         return 0;
     }
     else if (ret == -1)
     {
         perror("recv");
+        free(nlh);
         return -1;
     }
-    ev = (struct proc_event *)cn.data;
-    printf("nlh: %p\n", &nlh);         // size 16;   0x7ffd558ce410
-    printf("cn: %p\n", &cn);           // size 20+1; 0x7ffd558ce420 偏移 16 字节
-    printf("cn.data: %p\n", &cn.data); // size 1;    0x7ffd558ce434 偏移 16 + 20 字节
-    printf("proc: %p\n", &evt);        // size XX;   0x7ffd558ce440　偏移　16 + 20 + 12 字节，12个字节来自于对齐字节
-    printf("size of proc evt: %ld\n", sizeof(struct proc_event));
 
+    ev = (struct proc_event *)(NLMSG_DATA(nlh) + 20);
     switch (ev->what)
     {
     case PROC_EVENT_EXEC:
@@ -129,6 +124,7 @@ static int handle_received_event(int sd)
         printf("process unmonitor event:\t%d\n", ev->what);
         break;
     }
+    free(nlh);
     return 0;
 }
 

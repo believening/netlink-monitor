@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "exception": "cpp",
+        "limits": "cpp",
+        "new": "cpp",
+        "optional": "cpp",
+        "stdexcept": "cpp",
+        "functional": "cpp",
+        "typeinfo": "cpp"
+    }
+}

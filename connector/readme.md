@@ -40,7 +40,7 @@ struct cn_msg {
 
 	__u16 len;		/* Length of the following data */
 	__u16 flags;
-	__u8 data[0];
+	__u8 data[0];　 // proc_event 结构体的首地址
 };
 ```
 
