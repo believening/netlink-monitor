@@ -113,12 +113,12 @@ static volatile bool need_exit = false;
 static int handle_proc_ev(int nl_sock)
 {
     int rc;
-    struct __attribute__((aligned(NLMSG_ALIGNTO))) // 按照指定字节数对齐
+    struct __attribute__((aligned(NLMSG_ALIGNTO))) // 按照 4 字节数对齐
     {
-        struct nlmsghdr nl_hdr;
+        struct nlmsghdr nl_hdr; // 4*4 字节 [32,16+16,32,32] 
         struct __attribute__((__packed__)) // 按照实际占用字节数对齐
         {
-            struct cn_msg cn_msg;
+            struct cn_msg cn_msg; // [32,32,32,32,16+16,8+]
             struct proc_event proc_ev;
         };
     } nlcn_msg;

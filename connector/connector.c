@@ -49,17 +49,18 @@ static int control_event_listenning(int sd, enum proc_cn_mcast_op op)
     int msg_len;
     struct nlmsghdr nlh = {}; // netlink 消息头
     struct cn_msg cn = {};    // netlink connector 消息
+    enum proc_cn_mcast_op alloc_op;
     enum proc_cn_mcast_op *o;
 
     msg_len = NLMSG_SPACE(CNMSG_LEN + CNMCASTOP_LEN); // 申请对齐空间
     memset(&nlh, 0, msg_len);
+
     nlh.nlmsg_len = msg_len;
     nlh.nlmsg_type = NLMSG_DONE;
     nlh.nlmsg_flags = 0;
     nlh.nlmsg_seq = seq;
     nlh.nlmsg_pid = getpid();
 
-    memset(&cn, CNMSG_LEN, 0); // 构造 cn_msg
     cn.id.idx = CN_IDX_PROC;
     cn.id.val = CN_VAL_PROC;
     cn.len = CNMCASTOP_LEN;
@@ -83,14 +84,16 @@ static int handle_received_event(int sd)
 {
     int ret;
     int msg_len;
-    struct nlmsghdr hdr = {};
-    struct cn_msg cn = {};
-    struct proc_event *e;
+    // 连续分配在栈区的内存
+    struct nlmsghdr nlh = {};   // 栈区
+    struct cn_msg cn = {};      // 栈区
+    struct proc_event evt = {}; // 栈区 用于申请空间
+    struct proc_event *ev;
 
     msg_len = NLMSG_SPACE(CNMSG_LEN + PROCEVENT_LEN);
-    // memset(&hdr, 0, msg_len);
+    memset(&nlh, 0, msg_len);
 
-    ret = recv(sd, &hdr, msg_len, 0);
+    ret = recv(sd, &nlh, msg_len, 0);
     if (ret == 0) // 接收了 0 个字节的内容
     {
         return 0;
@@ -100,27 +103,30 @@ static int handle_received_event(int sd)
         perror("recv");
         return -1;
     }
+    ev = (struct proc_event *)cn.data;
+    printf("nlh: %p\n", &nlh);         // size 16;   0x7ffd558ce410
+    printf("cn: %p\n", &cn);           // size 20+1; 0x7ffd558ce420 偏移 16 字节
+    printf("cn.data: %p\n", &cn.data); // size 1;    0x7ffd558ce434 偏移 16 + 20 字节
+    printf("proc: %p\n", &evt);        // size XX;   0x7ffd558ce440　偏移　16 + 20 + 12 字节，12个字节来自于对齐字节
+    printf("size of proc evt: %ld\n", sizeof(struct proc_event));
 
-    // memset(&cn, 0, CNMSG_LEN + PROCEVENT_LEN);
-    memcpy(&cn, NLMSG_DATA(&hdr), ret - NLMSG_HDRLEN);
-    e = (struct proc_event *)cn.data;
-    switch (e->what)
+    switch (ev->what)
     {
     case PROC_EVENT_EXEC:
         printf("process event:\texec\t[time:%lld,pid:%d,tgid:%d]\n",
-               e->timestamp_ns,
-               e->event_data.exec.process_pid,
-               e->event_data.exec.process_tgid);
+               ev->timestamp_ns,
+               ev->event_data.exec.process_pid,
+               ev->event_data.exec.process_tgid);
         break;
     case PROC_EVENT_EXIT:
         printf("process event:\texit\t[time:%lld,pid:%d,tgid:%d,exit:%d]\n",
-               e->timestamp_ns,
-               e->event_data.exit.process_pid,
-               e->event_data.exit.process_tgid,
-               e->event_data.exit.exit_code);
+               ev->timestamp_ns,
+               ev->event_data.exit.process_pid,
+               ev->event_data.exit.process_tgid,
+               ev->event_data.exit.exit_code);
         break;
     default:
-        printf("process event: \t%d\n", e->what);
+        printf("process unmonitor event:\t%d\n", ev->what);
         break;
     }
     return 0;
