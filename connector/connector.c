@@ -31,7 +31,8 @@ static int create_connect()
     // bind
     l_local.nl_family = AF_NETLINK;
     l_local.nl_groups = 1;
-    l_local.nl_pid = getpid();
+    // l_local.nl_pid = getpid();
+    l_local.nl_pid = 0;
 
     if (bind(s, (struct sockaddr *)&l_local, sizeof(l_local)) != 0)
     {
