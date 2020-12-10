@@ -61,10 +61,9 @@ var (
 		Pid:    uint32(os.Getpid()),
 	}
 
-	bufPool = &sync.Pool{
+	bufPool = sync.Pool{
 		New: func() interface{} {
-			buf := make([]byte, NLC_MSG_LEN+PROC_EVENT_LEN, NLC_MSG_LEN+PROC_EVENT_LEN)
-			return buf
+			return make([]byte, NLC_MSG_LEN+PROC_EVENT_LEN, NLC_MSG_LEN+PROC_EVENT_LEN)
 		},
 	}
 )
@@ -220,9 +219,9 @@ func (nl *nlSocket) enableMonitor(en bool) error {
 }
 
 func (nl *nlSocket) readEvent() {
-	// if !nl.binded {
-	// 	return
-	// }
+	if !nl.binded {
+		return
+	}
 
 	buf := bufPool.Get().([]byte)
 	n, _, err := unix.Recvfrom(nl.fd, buf, 0)
@@ -242,25 +241,25 @@ func (nl *nlSocket) readEvent() {
 				fork := (*forkProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[fork] seq %d, detail %+v\n", cn.seq, fork)
 			case PROC_EVENT_EXEC:
-				exec := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				exec := (*execProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[exec] seq %d, detail %+v\n", cn.seq, exec)
 			case PROC_EVENT_UID:
-				uid := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				uid := (*idProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[uid] seq %d, detail %+v\n", cn.seq, uid)
 			case PROC_EVENT_GID:
-				gid := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				gid := (*idProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[gid] seq %d, detail %+v\n", cn.seq, gid)
 			case PROC_EVENT_SID:
-				sid := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				sid := (*sidProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[sid] seq %d, detail %+v\n", cn.seq, sid)
 			case PROC_EVENT_PTRACE:
-				ptrace := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				ptrace := (*ptraceProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[ptrace] seq %d, detail %+v\n", cn.seq, ptrace)
 			case PROC_EVENT_COMM:
-				comm := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				comm := (*commProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[comm] seq %d, detail %+v\n", cn.seq, comm)
 			case PROC_EVENT_COREDUMP:
-				coredump := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
+				coredump := (*coredumpProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
 				log.Printf("[coredump] seq %d, detail %+v\n", cn.seq, coredump)
 			case PROC_EVENT_EXIT:
 				exit := (*exitProc)(unsafe.Pointer(&buf[NLC_MSG_LEN+PROC_HDR_LEN]))
@@ -294,9 +293,9 @@ func main() {
 		log.Fatalf("start monitoring: %v\n", err)
 	}
 	defer nl.enableMonitor(false)
-	fmt.Println("monitoring...")
+	
+	log.Println("monitoring...")
 	for {
 		nl.readEvent()
 	}
-
 }
